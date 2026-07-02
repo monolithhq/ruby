@@ -1,0 +1,15 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Signing — never commit these
+*.jks
+*.keystore
+*.jks.base64
+ruby-release.*
