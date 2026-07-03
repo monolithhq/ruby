@@ -109,16 +109,12 @@ fun PosterCard(
         contentDescription = title,
         badge = qualityLabel?.let { label ->
             {
-                Box(
+                Badge(
+                    text = label,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(RubySpacing.xxs)
-                        .clip(RoundedCornerShape(RubyRadius.xs))
-                        .background(Color.Black.copy(alpha = 0.65f))
-                        .padding(horizontal = RubySpacing.xxs, vertical = 2.dp)
-                ) {
-                    Text(text = label, style = RubyType.Label, color = TextPrimary)
-                }
+                )
             }
         }
     )
