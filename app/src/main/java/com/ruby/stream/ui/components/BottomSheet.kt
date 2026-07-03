@@ -28,6 +28,7 @@ import com.ruby.stream.ui.theme.RubyType
 import com.ruby.stream.ui.theme.Surface2
 import com.ruby.stream.ui.theme.TextPrimary
 import com.ruby.stream.ui.theme.TextSecondary
+import androidx.compose.material3.ExperimentalMaterial3Api
 
 /**
  * Generic "pick one from a list" bottom sheet — covers Quality, Subtitles,
@@ -43,6 +44,7 @@ data class SelectionOption(
     val subtitle: String? = null
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RubySelectionSheet(
     title: String,
