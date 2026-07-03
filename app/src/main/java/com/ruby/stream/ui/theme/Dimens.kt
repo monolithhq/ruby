@@ -47,4 +47,5 @@ object RubyDimens {
     val DownloadCardHeight = 180.dp
     val BottomNavHeight = 64.dp
     val HeroBannerHeight = 480.dp
+    val ChipHeight = RubyTouchTarget.minimum
 }
