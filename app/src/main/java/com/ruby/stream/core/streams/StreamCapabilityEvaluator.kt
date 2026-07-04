@@ -1,7 +1,7 @@
 package com.ruby.stream.core.streams
 
-import com.ruby.stream.core.addons.AddonHealthState
 import com.ruby.stream.core.addons.model.StreamObject
+import com.ruby.stream.data.database.entity.AddonHealth
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,26 +15,27 @@ import javax.inject.Singleton
  * ranking criterion. Every stream that reaches StreamRanker is already
  * known to be playable -- there is no "prefer HTTP over YouTube" step,
  * because by the time ranking runs, only playable streams remain.
+ *
+ * addonEnabled and addonHealth are two orthogonal, separately-passed
+ * checks (revised in PASS 3, see SOT "Unify health vocabulary"):
+ * addonEnabled answers "should Ruby attempt to use this add-on at
+ * all" (InstalledAddonEntity.enabled); addonHealth answers "what
+ * happened the last time Ruby interacted with it"
+ * (InstalledAddonEntity.health / AddonHealth, which no longer has a
+ * DISABLED value -- that concept lives entirely in addonEnabled now).
  */
 @Singleton
 class StreamCapabilityEvaluator @Inject constructor() {
 
-    /**
-     * Returns null if the stream is eligible, or the specific reason
-     * it was excluded if not. Returning the reason (not just a
-     * Boolean) costs nothing here and pays off the moment Ruby wants
-     * to surface why a stream was hidden -- without this, that would
-     * require re-deriving the same checks a second time later.
-     */
     fun evaluate(
         stream: StreamObject,
         addonEnabled: Boolean,
-        addonHealth: AddonHealthState,
+        addonHealth: AddonHealth,
     ): IneligibilityReason? {
-        if (!addonEnabled || addonHealth == AddonHealthState.DISABLED) {
+        if (!addonEnabled) {
             return IneligibilityReason.ADDON_DISABLED
         }
-        if (addonHealth == AddonHealthState.INVALID_MANIFEST) {
+        if (addonHealth == AddonHealth.INVALID_MANIFEST) {
             return IneligibilityReason.ADDON_MANIFEST_INVALID
         }
         if (!stream.isPlayableByRuby()) {
@@ -55,6 +56,6 @@ class StreamCapabilityEvaluator @Inject constructor() {
     fun isEligible(
         stream: StreamObject,
         addonEnabled: Boolean,
-        addonHealth: AddonHealthState,
+        addonHealth: AddonHealth,
     ): Boolean = evaluate(stream, addonEnabled, addonHealth) == null
 }

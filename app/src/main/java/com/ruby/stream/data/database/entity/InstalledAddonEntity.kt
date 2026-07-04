@@ -4,11 +4,15 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+// DISABLED removed from this enum in PASS 3 -- InstalledAddonEntity.enabled
+// (below) already models "should Ruby attempt to use this add-on at all".
+// AddonHealth now answers a strictly narrower, orthogonal question: "what
+// happened the last time Ruby interacted with it". See SOT "Unify health
+// vocabulary" for the full reasoning.
 enum class AddonHealth {
     HEALTHY,
     TIMEOUT,
     INVALID_MANIFEST,
-    DISABLED,
     UNREACHABLE
 }
 

@@ -12,8 +12,7 @@ import javax.inject.Singleton
  * Stage 2 (authoritative, deterministic): sort by add-on health, then
  * by stable add-on order. No playback-method comparison here -- see
  * SOT "Eligibility precedes ranking": every candidate is already
- * playable by the time it reaches this class, so there is nothing left
- * to prefer on that axis.
+ * playable by the time it reaches this class.
  *
  * Stage 3 (heuristic, advisory): within each Stage 2 group (same
  * health tier), reorder using StreamLabelAnalyzer's inferred quality/
@@ -35,27 +34,14 @@ class StreamRanker @Inject constructor(
             )
         }
 
-        // Stage 2: group by health (healthy first), preserve incoming
-        // (already addon-order-stable) order as the tie-breaker within
-        // each health group -- this sortedByDescending is a STABLE
-        // sort, so ties keep their original relative order.
         val stage2Ordered = analyzed.sortedByDescending { it.sourceAddonHealthy }
 
-        // Stage 3: reorder only within contiguous same-health runs, so
-        // a heuristic score can never cross a Stage 2 boundary.
         return stage2Ordered
             .groupConsecutiveBy { it.sourceAddonHealthy }
             .flatMap { group -> group.sortedWith(heuristicComparator) }
             .map { it.stream }
     }
 
-    /**
-     * Higher inferred quality first. Ties (including everything
-     * UNKNOWN, i.e. no usable label at all) fall through to the
-     * incoming stable order via sortedWith's stability -- an analysis
-     * failure never demotes a stream below where Stage 2 already
-     * placed it, it just doesn't get a boost.
-     */
     private val heuristicComparator = compareByDescending<RankedStreamCandidate> {
         resolutionWeight(it.labelAnalysis)
     }.thenByDescending {
@@ -89,11 +75,6 @@ class StreamRanker @Inject constructor(
         }
     }
 
-    /**
-     * Splits a list into contiguous runs of equal key, preserving
-     * order. Used so Stage 3 only ever reorders within one Stage 2
-     * health-tier run, never across the boundary between two runs.
-     */
     private fun <T, K> List<T>.groupConsecutiveBy(key: (T) -> K): List<List<T>> {
         if (isEmpty()) return emptyList()
         val groups = mutableListOf<MutableList<T>>()
@@ -111,11 +92,6 @@ class StreamRanker @Inject constructor(
     }
 }
 
-/**
- * A stream already confirmed eligible by StreamCapabilityEvaluator,
- * carrying just enough addon context for Stage 2's ordering. Built by
- * AddonRepository, consumed by StreamRanker.
- */
 data class EligibleStream(
     val stream: StreamObject,
     val addonId: Long,

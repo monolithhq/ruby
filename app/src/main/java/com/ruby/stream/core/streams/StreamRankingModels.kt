@@ -9,13 +9,6 @@ import com.ruby.stream.core.addons.model.StreamObject
  * Architecture Decisions: "Authoritative before heuristic".
  */
 
-/**
- * A confidence level for a single inferred attribute. Deliberately
- * per-field (not one overall score) -- an add-on's label might be
- * very clear about resolution and say nothing about HDR at all, and
- * collapsing that into one number would hide the difference from
- * whatever consumes it.
- */
 enum class InferenceConfidence {
     NONE,
     LOW,

@@ -24,7 +24,7 @@ interface StreamLabelAnalyzer {
 
 /**
  * Keyword/regex-based implementation. Vocabulary locked during PASS 3
- * scoping -- see SOT for the full rationale. Rules:
+ * scoping. Rules:
  *   - Case-insensitive matching.
  *   - Punctuation normalized before matching (so "HDR10+" and
  *     "HDR10 Plus" both match the same pattern).

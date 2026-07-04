@@ -28,4 +28,15 @@ interface InstalledAddonDao {
 
     @Delete
     suspend fun delete(entity: InstalledAddonEntity)
+
+    // PASS 3 addition -- AddonRepository needs a one-shot, stably-
+    // ordered snapshot of every installed add-on (enabled or not; it
+    // does its own enabled/health filtering per-item) to iterate for
+    // parallel stream fetches. Ordered by id (Room's own autoincrement
+    // insertion order) rather than name, since name order is a UI
+    // display concern (Settings -> Add-ons list) unrelated to the
+    // deterministic-ranking-tiebreaker concern this method serves.
+    @Query("SELECT * FROM installed_addons ORDER BY id ASC")
+    suspend fun getAllOrderedById(): List<InstalledAddonEntity>
+
 }
