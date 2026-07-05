@@ -83,7 +83,7 @@ class AddonRepository @Inject constructor(
             }
         }.map { it.await() }
 
-        persistHealthUpdates(perAddonResults)
+        persistHealthUpdates(perAddonResults.map { (addon, health, _) -> addon to health })
 
         val eligible = perAddonResults.flatMap { (addon, observedHealth, streams) ->
             streams.mapNotNull { stream ->
@@ -129,7 +129,7 @@ class AddonRepository @Inject constructor(
             }
         }
 
-        persistHealthUpdates(attempted.map { (addon, health) -> Triple(addon, health, emptyList<StreamObject>()) })
+        persistHealthUpdates(attempted)
 
         return result
     }
@@ -158,13 +158,17 @@ class AddonRepository @Inject constructor(
      * Fire-and-forget write-back using an application-lifetime
      * repositoryScope (DI binding deferred to PASS 8) rather than a
      * child of this function's own coroutineScope, which would still
-     * be joined before getRankedStreams returns.
+     * be joined before the caller returns. Takes only what it actually
+     * needs (addon + observed health) -- getRankedStreams() and
+     * getMeta() both project their own richer per-addon result down to
+     * this shape at the call site, rather than this function accepting
+     * an unused third field just to satisfy one caller's tuple shape.
      */
     private fun persistHealthUpdates(
-        results: List<Triple<InstalledAddonEntity, AddonHealth, List<StreamObject>>>,
+        results: List<Pair<InstalledAddonEntity, AddonHealth>>,
     ) {
         repositoryScope.launch(Dispatchers.IO) {
-            results.forEach { (addon, observedHealth, _) ->
+            results.forEach { (addon, observedHealth) ->
                 if (observedHealth != addon.health) {
                     installedAddonDao.update(addon.copy(health = observedHealth))
                 }
