@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,6 +36,18 @@ class AddonClient @Inject constructor(
      * Fetches a resource route, e.g.
      * fetchResource(base, "stream", "movie", "tt1254207") to hit
      * /stream/movie/tt1254207.json
+     *
+     * id and extraPath are now properly percent-encoded (fixed Session
+     * 5, while adding search support) -- the prior version interpolated
+     * both raw into the URL path. That never mattered while every
+     * caller only ever passed simple, URL-safe content IDs with no
+     * extraPath at all, but search is the first caller passing
+     * free-text user input (via extraPath = "search=$query"), which can
+     * contain spaces, &, ?, or Unicode that would otherwise corrupt the
+     * path. extraPath's "=" separator (e.g. "search=inception") is
+     * preserved unencoded on purpose -- only the value after it is
+     * encoded, keeping the key=value structure Stremio's protocol
+     * expects intact while still safely encoding the value.
      */
     suspend fun fetchResource(
         baseUrl: String,
@@ -44,13 +57,30 @@ class AddonClient @Inject constructor(
         extraPath: String? = null,
     ): String? {
         val trimmedBase = baseUrl.trimEnd('/')
-        val encodedId = id
+        val encodedId = urlEncode(id)
         val path = if (extraPath != null) {
-            "$trimmedBase/$resource/$type/$encodedId/$extraPath.json"
+            "$trimmedBase/$resource/$type/$encodedId/${encodeExtraPath(extraPath)}.json"
         } else {
             "$trimmedBase/$resource/$type/$encodedId.json"
         }
         return fetchRaw(path)
+    }
+
+    private fun urlEncode(value: String): String =
+        URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+    /**
+     * extraPath arrives as "key=value" (e.g. "search=inception & sons")
+     * -- encode only the value portion, leaving the key and "="
+     * structure intact, since that structure is meaningful to the
+     * add-on's route parsing, not user content.
+     */
+    private fun encodeExtraPath(extraPath: String): String {
+        val separatorIndex = extraPath.indexOf('=')
+        if (separatorIndex == -1) return urlEncode(extraPath)
+        val key = extraPath.substring(0, separatorIndex)
+        val value = extraPath.substring(separatorIndex + 1)
+        return "$key=${urlEncode(value)}"
     }
 
     private suspend fun fetchRaw(url: String): String? = withContext(Dispatchers.IO) {
