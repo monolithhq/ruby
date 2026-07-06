@@ -31,6 +31,18 @@ data class InstalledAddonEntity(
     val version: String,
     val health: AddonHealth,
     val enabled: Boolean = true,
+
+    // Owner-set trust judgment about this SOURCE, independent of
+    // whether the add-on's own catalog labeling can be trusted -- see
+    // AD-011. Defaults false (opt-in): a newly installed add-on shows
+    // NOTHING to KIDS profiles until the Owner explicitly marks it
+    // trusted, regardless of how the add-on labels its own catalogs.
+    // This is the FIRST of two gates for KIDS-profile catalog
+    // visibility; InstalledCatalogEntity.visibleToKids is the second,
+    // finer-grained gate applied only within add-ons that already pass
+    // this one. Never read from add-on-reported metadata -- add-ons are
+    // third-party and cannot be trusted to self-report this honestly.
+    val familyFriendly: Boolean = false,
     val lastSuccessfulValidation: Long? = null,
     val lastFailureReason: String? = null,
     val lastCheckedAt: Long? = null

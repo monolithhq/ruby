@@ -29,6 +29,22 @@ import androidx.room.Index
  * serialized column on InstalledAddonEntity, letting search() filter
  * with SQL (WHERE supportsSearch = 1) instead of deserializing every
  * add-on's full catalog list just to check one flag.
+ *
+ * visibleToKids (added AD-011, Session 7) is the SECOND of two gates
+ * for KIDS-profile catalog visibility, and reuses this table rather
+ * than a new one because it operates at exactly the granularity the
+ * protocol itself exposes -- a single add-on can expose both a "Disney
+ * Kids" and a "Disney Marvel" catalog, and only the catalog layer can
+ * distinguish them (per Stremio's own real-world profile model, which
+ * configures catalog visibility per profile, not per add-on). The
+ * FIRST gate is InstalledAddonEntity.familyFriendly -- a KIDS profile
+ * must clear that Owner-level trust gate before this per-catalog flag
+ * is even consulted; an untrusted add-on's catalogs are hidden from
+ * KIDS profiles regardless of this column's value. Defaults false
+ * (opt-in): even on a newly trusted add-on, no catalog is shown to
+ * KIDS profiles until the Owner explicitly picks which ones -- the
+ * safer failure mode, matching familyFriendly's own default. Ordinary
+ * (non-KIDS) profiles ignore this column entirely.
  */
 @Entity(
     tableName = "installed_catalogs",
@@ -49,4 +65,5 @@ data class InstalledCatalogEntity(
     val catalogId: String,
     val name: String,
     val supportsSearch: Boolean,
+    val visibleToKids: Boolean = false,
 )
