@@ -81,3 +81,33 @@ data class RankedStreamCandidate(
     val sourceAddonHealthy: Boolean,
     val labelAnalysis: StreamLabelAnalysis,
 )
+
+/**
+ * One emission of AddonRepository.discoverStreams() (AD-012). Kept
+ * deliberately separate from any ViewModel/UI-layer state type
+ * (StreamSelectionUiState) -- this type's job is to carry repository-
+ * level provider-progress accounting; the ViewModel maps it into
+ * whatever the UI actually needs, so repository concerns never dictate
+ * the UI contract.
+ *
+ * candidates is an IMMUTABLE SNAPSHOT at emission time (an explicit
+ * architectural guarantee, not just an implementation detail of how
+ * it happens to be built) -- no emission may ever expose the
+ * repository's own live, still-mutating accumulator to a collector.
+ *
+ * completedAttempts counts providers whose WORK has finished --
+ * succeeded with streams, succeeded with zero streams, or failed --
+ * NOT providers that specifically found streams. An empty or failed
+ * provider still advances this count and still triggers an emission;
+ * see discoverStreams()'s own doc for the full deterministic emission
+ * contract (exactly totalProviders + 1 emissions per discovery
+ * session). No separate `finished: Boolean` field -- completion is
+ * (completedAttempts == totalProviders), and a derived boolean here
+ * would just be a second, independently-mutable fact that could drift
+ * out of sync with the two ints it's derived from.
+ */
+data class StreamDiscoveryUpdate(
+    val candidates: List<RankedStreamCandidate>,
+    val completedAttempts: Int,
+    val totalProviders: Int,
+)
