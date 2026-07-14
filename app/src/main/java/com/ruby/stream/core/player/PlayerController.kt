@@ -11,6 +11,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,8 +66,8 @@ interface PlayerController {
     val playbackState: StateFlow<PlaybackState>
 
     /**
-     * Loads streamUrl into the player and begins buffering, but does
-     * NOT start playback -- call play() once ready. Kept separate from
+     * Loads source into the player and begins buffering, but does NOT
+     * start playback -- call play() once ready. Kept separate from
      * play() so future behaviors (auto-play off, a resume-confirmation
      * prompt, pre-buffering while a dialog is still showing) don't
      * require an API change later.
@@ -78,13 +79,22 @@ interface PlayerController {
      * via this call returning. Callers do not need a coroutine scope
      * just to invoke this.
      *
-     * streamUrl is expected to already be a resolved, playable URL --
-     * choosing between a StreamObject's url/ytId/externalUrl fields is
-     * the caller's responsibility (PASS 6 / repository layer), not
-     * this controller's. PlayerController has no knowledge of
-     * StreamObject at all.
+     * source.url is expected to already be a resolved, playable URL --
+     * choosing between a StreamObject's url/ytId/externalUrl fields and
+     * carrying forward behaviorHints.proxyHeaders is
+     * PlaybackUrlResolver's responsibility (PASS 6, AD-026), not this
+     * controller's. PlayerController has no knowledge of StreamObject
+     * at all.
+     *
+     * WIDENED (AD-026, PASS 6): previously took a bare streamUrl:
+     * String. source.headers, when non-empty, are applied by
+     * reconfiguring this controller's DataSource.Factory before
+     * calling exoPlayer.prepare() -- Media3 applies custom HTTP headers
+     * at the DataSource.Factory level, not per-MediaItem (confirmed
+     * against Media3's own customization documentation), so headers
+     * cannot simply be attached to the MediaItem itself.
      */
-    fun prepare(streamUrl: String)
+    fun prepare(source: PlaybackSource)
 
     /** Starts or resumes playback. No-op if already playing. */
     fun play()
@@ -170,7 +180,7 @@ interface PlayerController {
 @OptIn(UnstableApi::class)
 class DefaultPlayerController @Inject constructor(
     @ApplicationContext context: Context,
-    private val controllerScope: CoroutineScope,
+    @com.ruby.stream.di.PlayerControllerScope private val controllerScope: CoroutineScope,
 ) : PlayerController {
 
     private val exoPlayer: ExoPlayer = ExoPlayer.Builder(context).build()
@@ -241,10 +251,32 @@ class DefaultPlayerController @Inject constructor(
         })
     }
 
-    override fun prepare(streamUrl: String) {
+    override fun prepare(source: PlaybackSource) {
         _playbackState.value = PlaybackState.Preparing
-        exoPlayer.setMediaItem(MediaItem.fromUri(streamUrl))
+        if (source.headers.isNotEmpty()) {
+            applyHeaders(source.headers)
+        }
+        exoPlayer.setMediaItem(MediaItem.fromUri(source.url))
         exoPlayer.prepare()
+    }
+
+    /**
+     * Reconfigures the player's media source factory with a
+     * DataSource.Factory carrying the given request headers, per
+     * Media3's documented header-injection pattern (headers live on
+     * the DataSource.Factory, not the MediaItem). Rebuilt per-prepare()
+     * call since different streams/add-ons may require different
+     * headers (or none) -- there is no single fixed header set for the
+     * lifetime of this controller.
+     */
+    @OptIn(UnstableApi::class)
+    private fun applyHeaders(headers: Map<String, String>) {
+        val dataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(headers)
+        exoPlayer.setMediaSource(
+            androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
+                .createMediaSource(androidx.media3.common.MediaItem.EMPTY)
+        )
     }
 
     override fun play() {
@@ -300,7 +332,18 @@ class DefaultPlayerController @Inject constructor(
     }
 
     override fun release() {
+        // controllerScope is NOT cancelled automatically by Hilt when
+        // this controller's owning ViewModelComponent is destroyed --
+        // a CoroutineScope is just another injected object to Hilt,
+        // not a Closeable it has a generic cleanup hook for (AD-027).
+        // Explicit cancellation here is what actually stops the
+        // SupervisorJob backing it, rather than relying on a DI
+        // implementation detail. stopPolling() first (already stops
+        // the one job actually running in this scope); the ordering
+        // relative to exoPlayer.release() is not load-bearing since
+        // polling has already stopped either way.
         stopPolling()
+        controllerScope.cancel()
         exoPlayer.release()
     }
 

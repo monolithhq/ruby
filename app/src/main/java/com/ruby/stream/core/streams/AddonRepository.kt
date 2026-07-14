@@ -86,7 +86,7 @@ class AddonRepository @Inject constructor(
     private val addonExecutor: AddonExecutor,
     private val capabilityEvaluator: StreamCapabilityEvaluator,
     private val streamRanker: StreamRanker,
-    private val repositoryScope: CoroutineScope,
+    @com.ruby.stream.di.ApplicationScope private val repositoryScope: CoroutineScope,
 ) {
 
     /**
